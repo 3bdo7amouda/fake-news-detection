@@ -39,7 +39,7 @@ def main():
             with st.spinner("Training model..."):
                 st.session_state.detector.train()
                 st.success("Model trained successfully!")
-                st.experimental_rerun()
+                st.rerun()
     else:
         st.sidebar.success("✅ Model ready!")
     
