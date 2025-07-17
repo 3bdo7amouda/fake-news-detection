@@ -67,7 +67,6 @@ fake-news-detection/
 
 ```bash
 # Clone the repository
-git clone https://github.com/3bdo7amouda/fake-news-detection.git
 cd fake-news-detection
 
 # Run the setup script
@@ -244,19 +243,3 @@ The Jupyter notebook (`notebooks/fake_news_analysis.ipynb`) provides:
 - Experiment with different feature extraction methods
 - Try hyperparameter tuning for specific models
 - Consider ensemble methods for improved performance
-
-## 📝 License
-
-This project is open source and available under the MIT License.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📧 Contact
-
-For questions or support, please open an issue on GitHub.
-
----
-
-**Made with ❤️ for AI and Machine Learning enthusiasts**
