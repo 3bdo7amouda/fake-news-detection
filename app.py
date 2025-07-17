@@ -12,28 +12,20 @@ if 'detector' not in st.session_state:
     st.session_state.detector = FakeNewsDetector()
 
 st.title("🔍 Fake News Detection")
-st.markdown("**Choose what you want to do:**")
-st.markdown("- **Demo**: See example predictions on sample news articles")
-st.markdown("- **Detect**: Analyze your own news article to check if it's fake or real")
+st.markdown("Analyze news articles to check if they're fake or real using AI")
 
 # Create tabs
 tab1, tab2 = st.tabs(["🧪 Demo", "🔍 Detect"])
 
 with tab1:
     st.header("Demo Examples")
-    st.markdown("Click the button below to see how the AI classifies different types of news:")
-    
     if st.button("🧪 Run Demo", type="primary"):
         examples = [
-            ("Scientists Discover Cancer Treatment", "Researchers develop new treatment"),
-            ("SHOCKING: Government Hiding Aliens", "Anonymous sources claim evidence"),
-            ("Miracle Weight Loss Pill", "Amazing pill helps lose weight fast"),
-            ("Stock Market Hits Record High", "Markets showed strong performance"),
-            ("Secret Mind Control Program", "Whistleblower reveals program"),
-            ("Medical Journal Research", "Journal publishes breakthrough research")
+            ("Scientists Win Nobel Prize", "Researchers develop breakthrough treatment"),
+            ("SHOCKING: Government Conspiracy", "Anonymous sources reveal secrets"),
+            ("Stock Market Update", "Markets showed strong performance today"),
+            ("Secret Mind Control", "Whistleblower reveals program")
         ]
-        
-        st.subheader("Demo Results:")
         
         for i, (title, text) in enumerate(examples, 1):
             result = st.session_state.detector.predict(text, title)
@@ -47,36 +39,30 @@ with tab1:
                     st.error(f"❌ {result['prediction']} ({result['confidence']:.1f}%)")
 
 with tab2:
-    st.header("Analyze Your News Article")
-    st.markdown("Enter any news article below to check if it's fake or real:")
+    st.header("Analyze Your Article")
+    title = st.text_input("📰 Title:", placeholder="Enter article title...")
+    text = st.text_area("📝 Content:", height=150, placeholder="Enter article content...")
     
-    # Input fields
-    title = st.text_input("📰 News Title:", placeholder="Enter the article title...")
-    text = st.text_area("📝 News Text:", height=150, placeholder="Enter the article content...")
-    
-    if st.button("🔍 Analyze Article", type="primary"):
+    if st.button("🔍 Analyze", type="primary"):
         if text.strip():
-            with st.spinner("Analyzing article..."):
+            with st.spinner("Analyzing..."):
                 result = st.session_state.detector.predict(text, title)
                 
-                st.divider()
                 col1, col2 = st.columns(2)
-                
                 with col1:
                     if result['is_real']:
                         st.success(f"✅ **{result['prediction']} News**")
                     else:
                         st.error(f"❌ **{result['prediction']} News**")
-                
                 with col2:
                     st.info(f"📊 **Confidence: {result['confidence']:.1f}%**")
                 
-                # Show confidence interpretation
+                # Confidence interpretation
                 if result['confidence'] > 80:
-                    st.info("🎯 High confidence prediction")
+                    st.info("🎯 High confidence")
                 elif result['confidence'] > 60:
-                    st.warning("⚠️ Medium confidence prediction")
+                    st.warning("⚠️ Medium confidence")
                 else:
-                    st.error("❓ Low confidence prediction - result may be uncertain")
+                    st.error("❓ Low confidence")
         else:
             st.warning("⚠️ Please enter some text to analyze")
