@@ -211,12 +211,25 @@ class DataPreprocessor:
         Returns:
             X_train, X_test, y_train, y_test
         """
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, 
-            test_size=Config.TEST_SIZE, 
-            random_state=Config.RANDOM_STATE,
-            stratify=y
-        )
+        # Check if dataset is too small for stratified splitting
+        min_samples_per_class = 2
+        unique_classes, class_counts = np.unique(y, return_counts=True)
+        
+        # If any class has fewer than min_samples_per_class, don't stratify
+        if any(count < min_samples_per_class for count in class_counts) or len(y) < 10:
+            logger.warning(f"Dataset too small for stratified splitting ({len(y)} samples). Using simple random split.")
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, 
+                test_size=max(0.2, 1/len(y)),  # Ensure at least 1 test sample
+                random_state=Config.RANDOM_STATE
+            )
+        else:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, 
+                test_size=Config.TEST_SIZE, 
+                random_state=Config.RANDOM_STATE,
+                stratify=y
+            )
         
         logger.info(f"Data split - Train: {len(X_train)}, Test: {len(X_test)}")
         return X_train, X_test, y_train, y_test
