@@ -25,7 +25,7 @@ pip install pandas numpy scikit-learn matplotlib seaborn nltk wordcloud jupyter 
 
 # Download NLTK data
 echo "📚 Downloading NLTK data..."
-python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('wordnet')"
+python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('stopwords'); nltk.download('wordnet')"
 
 # Create directories
 echo "📁 Creating project directories..."
