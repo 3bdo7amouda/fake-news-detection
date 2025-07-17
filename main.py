@@ -42,6 +42,34 @@ class FakeNewsDetector:
         
         return ' '.join(tokens)
     
+    def load_kaggle_datasets(self, fake_csv_path, true_csv_path):
+        """Load real Kaggle datasets instead of sample data"""
+        try:
+            # Load fake news dataset
+            fake_df = pd.read_csv(fake_csv_path)
+            fake_df['label'] = 0  # Fake = 0
+            
+            # Load true news dataset  
+            true_df = pd.read_csv(true_csv_path)
+            true_df['label'] = 1  # Real = 1
+            
+            # Combine datasets
+            combined_df = pd.concat([fake_df, true_df], ignore_index=True)
+            
+            # Ensure required columns exist
+            if 'title' not in combined_df.columns:
+                combined_df['title'] = ''
+            if 'text' not in combined_df.columns:
+                combined_df['text'] = combined_df.get('subject', '') + ' ' + combined_df.get('content', '')
+            
+            print(f"Loaded {len(fake_df)} fake and {len(true_df)} real articles")
+            return combined_df
+            
+        except Exception as e:
+            print(f"Error loading Kaggle datasets: {e}")
+            print("Falling back to sample data...")
+            return self.get_sample_data()
+
     def get_sample_data(self):
         """Sample training data"""
         data = {
@@ -83,9 +111,12 @@ class FakeNewsDetector:
         }
         return pd.DataFrame(data)
     
-    def train(self):
+    def train(self, use_kaggle=False, fake_csv_path=None, true_csv_path=None):
         """Train the model"""
-        df = self.get_sample_data()
+        if use_kaggle and fake_csv_path and true_csv_path:
+            df = self.load_kaggle_datasets(fake_csv_path, true_csv_path)
+        else:
+            df = self.get_sample_data()
         
         # Prepare data
         df['combined_text'] = df['title'].fillna('') + ' ' + df['text'].fillna('')
