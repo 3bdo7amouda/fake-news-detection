@@ -1,5 +1,5 @@
 """
-Simple Fake News Detection - Demo Only
+Simple Fake News Detection
 """
 import pandas as pd
 import pickle
@@ -25,22 +25,25 @@ class FakeNewsDetector:
         self.vectorizer = None
         self.stop_words = set(stopwords.words('english'))
         
-    def clean_text(self, text):
+    def preprocess_text(self, text):
+        """Clean and preprocess text"""
         if pd.isna(text):
             return ""
+        
+        # Clean text
         text = text.lower()
         text = re.sub(r'http\S+|www\S+|https\S+', '', text)
         text = re.sub(r'[^a-zA-Z\s]', '', text)
         text = re.sub(r'\s+', ' ', text).strip()
-        return text
-    
-    def preprocess_text(self, text):
-        cleaned = self.clean_text(text)
-        tokens = word_tokenize(cleaned)
+        
+        # Tokenize and remove stopwords
+        tokens = word_tokenize(text)
         tokens = [token for token in tokens if token not in self.stop_words and len(token) > 2]
+        
         return ' '.join(tokens)
     
     def get_sample_data(self):
+        """Sample training data"""
         data = {
             'title': [
                 'Scientists Discover Cancer Treatment', 'SHOCKING: Government Hiding Aliens',
@@ -81,16 +84,17 @@ class FakeNewsDetector:
         return pd.DataFrame(data)
     
     def train(self):
+        """Train the model"""
         df = self.get_sample_data()
         
-        df['title'] = df['title'].fillna('')
-        df['text'] = df['text'].fillna('')
-        df['combined_text'] = df['title'] + ' ' + df['text']
+        # Prepare data
+        df['combined_text'] = df['title'].fillna('') + ' ' + df['text'].fillna('')
         df['processed_text'] = df['combined_text'].apply(self.preprocess_text)
         
         X = df['processed_text']
         y = df['label']
         
+        # Train model
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         
         self.vectorizer = TfidfVectorizer(max_features=5000, stop_words='english')
@@ -99,6 +103,7 @@ class FakeNewsDetector:
         self.model = RandomForestClassifier(n_estimators=100, random_state=42)
         self.model.fit(X_train_tfidf, y_train)
         
+        # Save model
         os.makedirs('models', exist_ok=True)
         with open('models/model.pkl', 'wb') as f:
             pickle.dump(self.model, f)
@@ -108,6 +113,8 @@ class FakeNewsDetector:
         print("Model trained!")
     
     def predict(self, text, title=""):
+        """Predict if news is fake or real"""
+        # Load model if needed
         if not self.model:
             try:
                 with open('models/model.pkl', 'rb') as f:
@@ -118,6 +125,7 @@ class FakeNewsDetector:
                 print("Training model...")
                 self.train()
         
+        # Make prediction
         combined_text = title + ' ' + text
         processed_text = self.preprocess_text(combined_text)
         text_tfidf = self.vectorizer.transform([processed_text])
@@ -133,6 +141,7 @@ class FakeNewsDetector:
         }
 
 def demo():
+    """Run demo with example articles"""
     detector = FakeNewsDetector()
     
     examples = [
@@ -149,26 +158,23 @@ def demo():
     
     for title, text in examples:
         result = detector.predict(text, title)
-        if result:
-            print(f"'{title}' → {result['prediction']} ({result['confidence']:.1f}%)")
+        print(f"'{title}' → {result['prediction']} ({result['confidence']:.1f}%)")
 
 def detect():
+    """Detect fake news in user input"""
     detector = FakeNewsDetector()
     
     print("🔍 Fake News Detection")
     print("=" * 40)
-    print("Enter your news article to check if it's fake or real:")
+    print("Enter your news article:")
     
     title = input("Title: ").strip()
     text = input("Text: ").strip()
     
     if text:
         result = detector.predict(text, title)
-        if result:
-            print(f"\n📰 Result: {result['prediction']}")
-            print(f"📊 Confidence: {result['confidence']:.1f}%")
-        else:
-            print("Error occurred during prediction")
+        print(f"\n📰 Result: {result['prediction']}")
+        print(f"📊 Confidence: {result['confidence']:.1f}%")
     else:
         print("Please enter some text to analyze")
 
