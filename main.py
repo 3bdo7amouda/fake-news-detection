@@ -10,7 +10,10 @@ from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, accuracy_score
 import os
+import numpy as np
 
 # Download NLTK data
 try:
@@ -31,7 +34,7 @@ class FakeNewsDetector:
             return ""
         
         # Clean text
-        text = text.lower()
+        text = str(text).lower()
         text = re.sub(r'http\S+|www\S+|https\S+', '', text)
         text = re.sub(r'[^a-zA-Z\s]', '', text)
         text = re.sub(r'\s+', ' ', text).strip()
@@ -43,7 +46,7 @@ class FakeNewsDetector:
         return ' '.join(tokens)
     
     def load_kaggle_datasets(self, fake_csv_path, true_csv_path):
-        """Load real Kaggle datasets instead of sample data"""
+        """Load real Kaggle datasets with proper balancing"""
         try:
             # Load fake news dataset
             fake_df = pd.read_csv(fake_csv_path)
@@ -53,86 +56,87 @@ class FakeNewsDetector:
             true_df = pd.read_csv(true_csv_path)
             true_df['label'] = 1  # Real = 1
             
+            # Balance the datasets to prevent bias
+            min_size = min(len(fake_df), len(true_df))
+            fake_df = fake_df.sample(n=min_size, random_state=42)
+            true_df = true_df.sample(n=min_size, random_state=42)
+            
             # Combine datasets
             combined_df = pd.concat([fake_df, true_df], ignore_index=True)
             
-            # Ensure required columns exist
-            if 'title' not in combined_df.columns:
-                combined_df['title'] = ''
-            if 'text' not in combined_df.columns:
-                combined_df['text'] = combined_df.get('subject', '') + ' ' + combined_df.get('content', '')
+            # Shuffle the combined dataset
+            combined_df = combined_df.sample(frac=1, random_state=42).reset_index(drop=True)
             
-            print(f"Loaded {len(fake_df)} fake and {len(true_df)} real articles")
+            print(f"Loaded {len(fake_df)} fake and {len(true_df)} real articles (balanced)")
+            print(f"Label distribution: {combined_df['label'].value_counts().to_dict()}")
+            
             return combined_df
             
         except Exception as e:
             print(f"Error loading Kaggle datasets: {e}")
-            print("Falling back to sample data...")
-            return self.get_sample_data()
+            print("Please ensure the Kaggle dataset files are available:")
+            print(f"- Fake news CSV: {fake_csv_path}")
+            print(f"- True news CSV: {true_csv_path}")
+            raise Exception("Kaggle datasets are required for training")
 
-    def get_sample_data(self):
-        """Sample training data"""
-        data = {
-            'title': [
-                'Scientists Discover Cancer Treatment', 'SHOCKING: Government Hiding Aliens',
-                'Stock Market Hits Record High', 'Miracle Weight Loss Pill',
-                'Climate Change Research Published', 'Celebrity Found Dead',
-                'School Wins National Award', 'Secret Mind Control Program',
-                'Tech Company New Product', 'Home Remedy Cures Everything',
-                'Vaccine Study Results', 'Amazing Weight Loss Trick',
-                'Economic Report Job Growth', 'Moon Landing Conspiracy',
-                'Medical Journal Research', 'Doctors Hate This Trick',
-                'Government New Policy', 'Celebrity Scandal Exposed',
-                'Nobel Prize Winners', 'Kitchen Ingredient Miracle Cure'
-            ],
-            'text': [
-                'Researchers develop treatment through clinical trials',
-                'Anonymous sources claim government hiding alien evidence',
-                'Markets showed strong performance with positive indicators',
-                'Amazing pill helps lose weight without diet or exercise',
-                'Scientists publish study on climate change impacts',
-                'Police investigating celebrity death at residence',
-                'Students achieved excellence in national competition',
-                'Whistleblower reveals mind control program',
-                'Company unveils product after years of development',
-                'Kitchen trick solves all health problems instantly',
-                'Study confirms vaccine safety and effectiveness',
-                'Weight loss secret trainers dont want you to know',
-                'Report shows job growth across multiple sectors',
-                'Evidence suggests moon landing was fake',
-                'Journal publishes breakthrough heart disease research',
-                'Discover trick doctors hate pharmaceutical companies',
-                'Government announces healthcare reform policy',
-                'Celebrity scandal reveals secret affairs',
-                'Scientists receive Nobel Prize for quantum research',
-                'Kitchen ingredient treats cancer diabetes instantly'
-            ],
-            'label': [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0]
-        }
-        return pd.DataFrame(data)
-    
-    def train(self, use_kaggle=False, fake_csv_path=None, true_csv_path=None):
-        """Train the model"""
-        if use_kaggle and fake_csv_path and true_csv_path:
-            df = self.load_kaggle_datasets(fake_csv_path, true_csv_path)
-        else:
-            df = self.get_sample_data()
+    def train(self, fake_csv_path=None, true_csv_path=None):
+        """Train the model with Kaggle datasets only"""
+        if not fake_csv_path or not true_csv_path:
+            print("Error: Both fake_csv_path and true_csv_path are required")
+            print("Please provide paths to the Kaggle dataset files:")
+            print("- Fake.csv (fake news dataset)")
+            print("- True.csv (real news dataset)")
+            raise ValueError("Kaggle dataset paths are required")
+        
+        df = self.load_kaggle_datasets(fake_csv_path, true_csv_path)
         
         # Prepare data
         df['combined_text'] = df['title'].fillna('') + ' ' + df['text'].fillna('')
         df['processed_text'] = df['combined_text'].apply(self.preprocess_text)
         
+        # Remove empty texts
+        df = df[df['processed_text'].str.len() > 0]
+        
         X = df['processed_text']
         y = df['label']
         
-        # Train model
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        print(f"Training with {len(X)} articles")
+        print(f"Class distribution: {y.value_counts().to_dict()}")
         
-        self.vectorizer = TfidfVectorizer(max_features=5000, stop_words='english')
+        # Split data with stratification to maintain class balance
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+        
+        # Use improved TF-IDF vectorizer
+        self.vectorizer = TfidfVectorizer(
+            max_features=10000,
+            stop_words='english',
+            ngram_range=(1, 2),  # Use both unigrams and bigrams
+            min_df=2,  # Ignore terms that appear in less than 2 documents
+            max_df=0.8  # Ignore terms that appear in more than 80% of documents
+        )
+        
         X_train_tfidf = self.vectorizer.fit_transform(X_train)
+        X_test_tfidf = self.vectorizer.transform(X_test)
         
-        self.model = RandomForestClassifier(n_estimators=100, random_state=42)
+        # Use Logistic Regression with balanced class weights
+        self.model = LogisticRegression(
+            class_weight='balanced',  # This helps with any remaining class imbalance
+            random_state=42,
+            max_iter=1000,
+            C=1.0  # Regularization parameter
+        )
+        
         self.model.fit(X_train_tfidf, y_train)
+        
+        # Test the model
+        y_pred = self.model.predict(X_test_tfidf)
+        accuracy = accuracy_score(y_test, y_pred)
+        
+        print(f"Model accuracy: {accuracy:.3f}")
+        print("\nClassification Report:")
+        print(classification_report(y_test, y_pred, target_names=['Fake', 'Real']))
         
         # Save model
         os.makedirs('models', exist_ok=True)
@@ -141,7 +145,7 @@ class FakeNewsDetector:
         with open('models/vectorizer.pkl', 'wb') as f:
             pickle.dump(self.vectorizer, f)
         
-        print("Model trained!")
+        print("Model trained and saved!")
     
     def predict(self, text, title=""):
         """Predict if news is fake or real"""
@@ -157,8 +161,16 @@ class FakeNewsDetector:
                 self.train()
         
         # Make prediction
-        combined_text = title + ' ' + text
+        combined_text = str(title) + ' ' + str(text)
         processed_text = self.preprocess_text(combined_text)
+        
+        if not processed_text:
+            return {
+                'prediction': 'Unknown',
+                'confidence': 50.0,
+                'is_real': False
+            }
+        
         text_tfidf = self.vectorizer.transform([processed_text])
         
         prediction = self.model.predict(text_tfidf)[0]
